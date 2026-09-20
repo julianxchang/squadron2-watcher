@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squadron Watch</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --ink: #1b2430; --muted: #66707d; --line: #e2e5ea;
+    --accent: #1f6feb; --accent-ink: #fff; --ok: #12813a; --ok-bg: #e2f5e8;
+    --warn: #9a5b00; --warn-bg: #fff1d6; --bad: #b42318; --bad-bg: #fde7e4; --idle-bg: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --card: #1a2029; --ink: #e6e9ee; --muted: #939db0; --line: #2a3240;
+      --accent: #4c8dff; --accent-ink: #08121f; --ok: #58d283; --ok-bg: #16301f;
+      --warn: #f1b451; --warn-bg: #362a10; --bad: #ff8a80; --bad-bg: #3a1c19; --idle-bg: #232b37;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; flex: 1 1 auto; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .banner { border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; background: var(--bad-bg); color: var(--bad); }
+  .banner.warn { background: var(--warn-bg); color: var(--warn); }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { border-color: var(--bad); color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  .watch { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 10px; }
+  .watch.off { opacity: .6; }
+  .when { flex: 1 1 220px; }
+  .when b { font-size: 16px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--idle-bg); color: var(--muted); }
+  .chip.free { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--idle-bg); color: var(--muted); white-space: nowrap; }
+  .badge.open { background: var(--ok-bg); color: var(--ok); }
+  .badge.err { background: var(--bad-bg); color: var(--bad); }
+  .actions { display: flex; gap: 6px; }
+  .empty { color: var(--muted); text-align: center; padding: 22px; }
+  form .row { display: flex; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 12px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input[type=date], select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+                              background: var(--card); color: var(--ink); }
+  fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 12px; padding: 10px 12px; }
+  legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
+  .planes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+  .planes label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .planes small { color: var(--muted); }
+  .linkbtn { border: 0; background: none; color: var(--accent); padding: 0 4px; font-size: 13px; }
+  #formMsg { margin-left: 10px; font-size: 13px; color: var(--bad); }
+  .log { font: 12.5px/1.6 ui-monospace, Consolas, monospace; max-height: 220px; overflow: auto; }
+  .log div { border-bottom: 1px solid var(--line); padding: 2px 0; }
+  .log .t { color: var(--muted); margin-right: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Squadron Watch</h1>
+    <span class="meta" id="status">connecting…</span>
+    <button id="pollNow">Check now</button>
+    <button id="testEmail">Send test email</button>
+  </header>
+
+  <div id="banners"></div>
+
+  <h2>Watches</h2>
+  <div id="watches"></div>
+
+  <h2>Add a watch</h2>
+  <form class="card" id="addForm">
+    <div class="row">
+      <label class="f">Date <input type="date" id="fDate" required></label>
+      <label class="f">From <select id="fStart"></select></label>
+      <label class="f">To <select id="fEnd"></select></label>
+    </div>
+    <fieldset>
+      <legend>Aircraft to watch
+        <button type="button" class="linkbtn" id="allBtn">all</button>
+        <button type="button" class="linkbtn" id="noneBtn">none</button>
+      </legend>
+      <div class="planes" id="planes"><span class="sub">Loading aircraft from the schedule…</span></div>
+    </fieldset>
+    <button class="primary" type="submit">Add watch</button><span id="formMsg"></span>
+    <div class="sub" style="margin-top:8px">You're alerted when one selected aircraft is free for the <em>whole</em> From–To block.</div>
+  </form>
+
+  <h2>Activity</h2>
+  <div class="card log" id="log"><span class="sub">Nothing yet.</span></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(method, path, body) {
+  const r = await fetch(path, {method, headers: {'Content-Type': 'application/json'},
+                               body: body ? JSON.stringify(body) : undefined});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+function fmtTime(hhmm) {
+  let [h, m] = hhmm.split(':').map(Number);
+  const suffix = h >= 12 && h < 24 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+function fmtDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+}
+
+// --- time selects -------------------------------------------------------
+function fillTimes() {
+  const opts = (from, to) => { let h = ''; for (let m = from; m <= to; m += 30) {
+    const v = `${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`;
+    h += `<option value="${v}">${fmtTime(v)}</option>`; } return h; };
+  $('fStart').innerHTML = opts(0, 23 * 60 + 30);
+  $('fEnd').innerHTML = opts(30, 24 * 60);
+  $('fStart').value = '10:00'; $('fEnd').value = '12:00';
+}
+
+// --- aircraft checkboxes (rebuilt only when the fleet changes, keeps your ticks) ---
+let fleetKey = '';
+function renderPlanes(aircraft) {
+  const key = JSON.stringify(aircraft);
+  if (key === fleetKey || !aircraft.length) return;
+  fleetKey = key;
+  const checked = new Set([...document.querySelectorAll('#planes input:checked')].map(i => i.value));
+  const first = !document.querySelector('#planes input');
+  $('planes').innerHTML = aircraft.map(a =>
+    `<label><input type="checkbox" value="${esc(a.reg)}" ${first || checked.has(a.reg) ? 'checked' : ''}>
+     ${esc(a.reg)} <small>${esc(a.type)}</small></label>`).join('');
+}
+$('allBtn').onclick = () => document.querySelectorAll('#planes input').forEach(i => i.checked = true);
+$('noneBtn').onclick = () => document.querySelectorAll('#planes input').forEach(i => i.checked = false);
+
+// --- rendering ----------------------------------------------------------
+function renderWatch(w) {
+  let badge = '<span class="badge">Watching</span>';
+  if (w.expired) badge = '<span class="badge">Ended</span>';
+  else if (!w.enabled) badge = '<span class="badge">Paused</span>';
+  else if (w.free.length) badge = `<span class="badge open">OPEN: ${w.free.map(esc).join(', ')}</span>`;
+  else if (!w.checked) badge = '<span class="badge">Waiting for first check…</span>';
+
+  const chips = w.tails.map(t => `<span class="chip ${w.free.includes(t) ? 'free' : ''}">${esc(t)}</span>`).join('');
+  const last = [w.checked && `checked ${w.checked}`, w.last_alert && `last alert ${w.last_alert}`].filter(Boolean).join(' · ');
+  return `<div class="card watch ${w.enabled && !w.expired ? '' : 'off'}">
+    <div class="when"><b>${fmtDate(w.date)}</b> &nbsp;${fmtTime(w.start)} – ${fmtTime(w.end)}
+      <div class="sub">${esc(last)}</div><div class="chips">${chips}</div></div>
+    ${badge}
+    <div class="actions">
+      ${w.expired ? '' : `<button data-toggle="${w.id}">${w.enabled ? 'Pause' : 'Resume'}</button>`}
+      <button class="danger" data-del="${w.id}">Delete</button>
+    </div></div>`;
+}
+
+let lastState = null;
+function render(s) {
+  lastState = s;
+  $('status').textContent = s.last_poll ? `last checked ${s.last_poll} · every ${s.interval}s` : 'waiting for first check…';
+  let b = '';
+  if (s.error) b += `<div class="banner">${esc(s.error)}</div>`;
+  if (!s.email_configured) b += `<div class="banner warn">Email isn't set up (SMTP_USER / SMTP_PASS / EMAIL_TO in .env). Alerts will only show here and beep.</div>`;
+  $('banners').innerHTML = b;
+  $('testEmail').title = s.email_to ? `Sends to ${s.email_to}` : '';
+  $('watches').innerHTML = s.watches.length ? s.watches.map(renderWatch).join('')
+    : '<div class="card empty">No watches yet. Add one below.</div>';
+  renderPlanes(s.aircraft);
+  $('log').innerHTML = s.log.length ? s.log.map(e => `<div><span class="t">${esc(e.t)}</span>${esc(e.text)}</div>`).join('')
+    : '<span class="sub">Nothing yet.</span>';
+}
+
+async function refresh() {
+  try { render(await api('GET', '/api/state')); }
+  catch (e) { $('status').textContent = 'server not reachable'; }
+}
+
+// --- actions ------------------------------------------------------------
+$('watches').addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t) return;
+  try {
+    if (t.dataset.del) { if (!confirm('Delete this watch?')) return; await api('DELETE', `/api/watches/${t.dataset.del}`); }
+    else if (t.dataset.toggle) await api('POST', `/api/watches/${t.dataset.toggle}/toggle`, {});
+    else return;
+    refresh();
+  } catch (err) { alert(err.message); }
+});
+
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const tails = [...document.querySelectorAll('#planes input:checked')].map(i => i.value);
+  $('formMsg').textContent = '';
+  try {
+    await api('POST', '/api/watches', {date: $('fDate').value, start: $('fStart').value, end: $('fEnd').value, tails});
+    refresh();
+  } catch (err) { $('formMsg').textContent = err.message; }
+});
+
+$('pollNow').onclick = async () => { await api('POST', '/api/poll', {}); setTimeout(refresh, 1500); };
+$('testEmail').onclick = async () => {
+  $('testEmail').disabled = true;
+  try { await api('POST', '/api/test-email', {}); alert('Test email sent.'); }
+  catch (e) { alert('Test email failed. Check the console window for details.'); }
+  $('testEmail').disabled = false; refresh();
+};
+
+fillTimes();
+$('fDate').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>
