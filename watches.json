@@ -2,7 +2,7 @@
   "watches": [
     {
       "id": "a8d9167b",
-      "enabled": true,
+      "enabled": false,
       "date": "2026-09-20",
       "start": "10:00",
       "end": "12:00",
